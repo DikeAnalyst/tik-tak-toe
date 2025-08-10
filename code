@@ -1,0 +1,174 @@
+import React, { useEffect, useState } from "react";
+
+// Tic-Tac-Toe (X & O) — single-file React component // - Hotseat (2 players) and optional vs CPU (easy-ish AI) // - Tracks score, highlights winning line, reset/new round // - Tailwind CSS classes used for styling (no imports required)
+
+export default function TicTacToe() { const emptyBoard = Array(9).fill(null); const [board, setBoard] = useState(emptyBoard); const [xIsNext, setXIsNext] = useState(true); const [scores, setScores] = useState({ X: 0, O: 0, ties: 0 }); const [winnerInfo, setWinnerInfo] = useState({ winner: null, line: [] }); const [vsCpu, setVsCpu] = useState(false); const [cpuPlaysAs, setCpuPlaysAs] = useState("O"); const [thinking, setThinking] = useState(false);
+
+useEffect(() => { const info = calculateWinner(board); setWinnerInfo(info); }, [board]);
+
+useEffect(() => { // If vs CPU and it's CPU's turn and game not finished -> trigger AI if (!winnerInfo.winner && vsCpu && getCurrentPlayer() === cpuPlaysAs) { setThinking(true); const t = setTimeout(() => { const idx = pickBestMove(board, cpuPlaysAs); if (idx !== null) handleMove(idx); setThinking(false); }, 350); return () => clearTimeout(t); } }, [board, vsCpu, cpuPlaysAs, winnerInfo]);
+
+function getCurrentPlayer() { return xIsNext ? "X" : "O"; }
+
+function handleMove(i) { if (board[i] || winnerInfo.winner) return; // occupied or game over
+
+const newBoard = board.slice();
+newBoard[i] = getCurrentPlayer();
+setBoard(newBoard);
+
+const info = calculateWinner(newBoard);
+if (info.winner) {
+  // update score
+  setScores((s) => ({ ...s, [info.winner]: s[info.winner] + 1 }));
+  setWinnerInfo(info);
+  return;
+}
+
+if (!newBoard.includes(null)) {
+  // tie
+  setScores((s) => ({ ...s, ties: s.ties + 1 }));
+  setWinnerInfo({ winner: "Tie", line: [] });
+  return;
+}
+
+setXIsNext((v) => !v);
+
+}
+
+function handleClick(i) { // if vs CPU and current player is CPU, ignore user's clicks if (vsCpu && getCurrentPlayer() === cpuPlaysAs) return; handleMove(i); }
+
+function newRound() { setBoard(emptyBoard); setWinnerInfo({ winner: null, line: [] }); setXIsNext(true); setThinking(false); }
+
+function resetAll() { newRound(); setScores({ X: 0, O: 0, ties: 0 }); }
+
+// Basic winner detection function calculateWinner(bd) { const lines = [ [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6], ]; for (const line of lines) { const [a, c, d] = line; if (bd[a] && bd[a] === bd[c] && bd[a] === bd[d]) { return { winner: bd[a], line }; } } return { winner: null, line: [] }; }
+
+// Simple AI: try to win, block, take center, take corner, else random function pickBestMove(bd, cpuSymbol) { const human = cpuSymbol === "X" ? "O" : "X";
+
+// 1) immediate win
+for (let i = 0; i < 9; i++) {
+  if (!bd[i]) {
+    const test = bd.slice();
+    test[i] = cpuSymbol;
+    if (calculateWinner(test).winner === cpuSymbol) return i;
+  }
+}
+
+// 2) block opponent immediate win
+for (let i = 0; i < 9; i++) {
+  if (!bd[i]) {
+    const test = bd.slice();
+    test[i] = human;
+    if (calculateWinner(test).winner === human) return i;
+  }
+}
+
+// 3) take center
+if (!bd[4]) return 4;
+
+// 4) take a corner
+const corners = [0, 2, 6, 8].filter((i) => !bd[i]);
+if (corners.length) return corners[Math.floor(Math.random() * corners.length)];
+
+// 5) fallback to any empty
+const empties = bd.map((v, idx) => (v ? null : idx)).filter((v) => v !== null);
+if (empties.length) return empties[Math.floor(Math.random() * empties.length)];
+
+return null;
+
+}
+
+const renderCell = (i) => { const isWinningCell = winnerInfo.line.includes(i); return ( <button key={i} onClick={() => handleClick(i)} className={w-20 h-20 md:w-24 md:h-24 flex items-center justify-center text-3xl md:text-4xl font-bold rounded-lg transition-shadow focus:outline-none ${board[i] ? "cursor-not-allowed" : "hover:shadow-md"} ${isWinningCell ? "bg-yellow-300" : "bg-white"}} > {board[i]} </button> ); };
+
+return ( <div className="min-h-screen flex items-start justify-center p-6 bg-gradient-to-b from-slate-50 to-slate-100"> <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg p-6"> <div className="flex flex-col md:flex-row gap-6"> {/* Left: Game */} <div className="flex-1 flex flex-col items-center"> <h2 className="text-2xl font-semibold mb-3">Tic‑Tac‑Toe — X and O</h2>
+
+<div className="board grid grid-cols-3 gap-3 p-3 bg-slate-50 rounded-lg">
+          {board.map((_, i) => renderCell(i))}
+        </div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <div className="text-sm">Turn:</div>
+          <div className="px-3 py-1 rounded-md bg-slate-100 font-medium">{winnerInfo.winner ? "—" : getCurrentPlayer()}</div>
+          {thinking && <div className="text-xs text-slate-500">CPU thinking…</div>}
+        </div>
+
+        <div className="mt-4 flex gap-3">
+          <button onClick={newRound} className="px-4 py-2 rounded-xl shadow-sm bg-indigo-600 text-white hover:opacity-95">New Round</button>
+          <button onClick={resetAll} className="px-4 py-2 rounded-xl shadow-sm bg-red-50 text-red-700 hover:bg-red-100">Reset Scores</button>
+        </div>
+
+        <div className="mt-3 text-center text-sm text-slate-700">
+          {winnerInfo.winner === "Tie" ? "It’s a tie!" : winnerInfo.winner ? `Winner: ${winnerInfo.winner}` : "Make a move"}
+        </div>
+      </div>
+
+      {/* Right: Controls & Scores */}
+      <div className="w-64 md:w-72 flex-shrink-0">
+        <div className="bg-slate-50 p-4 rounded-xl">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">Mode</div>
+            <label className="inline-flex items-center">
+              <input
+                type="checkbox"
+                checked={vsCpu}
+                onChange={(e) => {
+                  const newVal = e.target.checked;
+                  setVsCpu(newVal);
+                  // reset round when switching mode
+                  newRound();
+                }}
+                className="mr-2"
+              />
+              <span className="text-sm">vs CPU</span>
+            </label>
+          </div>
+
+          {vsCpu && (
+            <div className="mt-3">
+              <div className="text-xs text-slate-600">CPU plays as</div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    setCpuPlaysAs("X");
+                    newRound();
+                  }}
+                  className={`flex-1 py-1 rounded ${cpuPlaysAs === "X" ? "bg-indigo-600 text-white" : "bg-white"}`}
+                >
+                  X
+                </button>
+                <button
+                  onClick={() => {
+                    setCpuPlaysAs("O");
+                    newRound();
+                  }}
+                  className={`flex-1 py-1 rounded ${cpuPlaysAs === "O" ? "bg-indigo-600 text-white" : "bg-white"}`}
+                >
+                  O
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-slate-500">Switching resets the board.</div>
+            </div>
+          )}
+
+          <div className="mt-4">
+            <div className="text-xs text-slate-600">Score</div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 bg-white rounded">X<div className="font-semibold">{scores.X}</div></div>
+              <div className="p-2 bg-white rounded">Ties<div className="font-semibold">{scores.ties}</div></div>
+              <div className="p-2 bg-white rounded">O<div className="font-semibold">{scores.O}</div></div>
+            </div>
+          </div>
+
+          <div className="mt-4 text-xs text-slate-500">
+            Tip: Click a square to place your mark. Use "New Round" to clear the board without resetting scores.
+          </div>
+        </div>
+
+        <div className="mt-4 text-center text-xs text-slate-500">Built for the canvas — play locally. Want a different style or an undo button?</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+); }
+
